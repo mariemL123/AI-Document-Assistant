@@ -1,0 +1,25 @@
+﻿# Secrets
+.env
+.env.*
+!.env.example
+OpenIA-api-key.txt
+
+# Bases de donnees
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Fichiers locaux et IDE
+.private-local/
+.vscode/
+.idea/
+
+# Sauvegardes HTML locales
+index_backup.html

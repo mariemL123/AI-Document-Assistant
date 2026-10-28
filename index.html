@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f172a">
+  <title>AI Document Assistant</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --text: #172033;
+      --muted: #667085;
+      --line: #e5eaf2;
+      --primary: #3563e9;
+      --primary-dark: #244bc2;
+      --soft-blue: #edf3ff;
+      --green: #16865b;
+      --shadow: 0 12px 36px rgba(22, 34, 66, .07);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); }
+    .topbar {
+      background: #101a33; color: #fff; padding: 17px 24px;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 750; letter-spacing: -.3px; }
+    .brand-icon {
+      width: 42px; height: 42px; display: grid; place-items: center; border-radius: 13px;
+      background: linear-gradient(135deg, #5685ff, #7859e8); font-size: 21px;
+    }
+    .top-note { color: #cbd5e8; font-size: 13px; }
+    main { width: min(1120px, calc(100% - 32px)); margin: 38px auto 64px; }
+    .hero { margin-bottom: 26px; }
+    .eyebrow { color: var(--primary); text-transform: uppercase; letter-spacing: 1.5px; font-size: 11px; font-weight: 800; }
+    h1 { font-size: clamp(29px, 4vw, 42px); letter-spacing: -1.5px; line-height: 1.12; margin: 10px 0 12px; }
+    .hero p { color: var(--muted); font-size: 16px; line-height: 1.65; max-width: 720px; margin: 0; }
+    .layout { display: grid; grid-template-columns: minmax(280px, .82fr) minmax(0, 1.45fr); gap: 22px; align-items: start; }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow); overflow: hidden; }
+    .card-head { padding: 21px 22px 0; }
+    .card-head h2 { font-size: 17px; margin: 0 0 7px; letter-spacing: -.3px; }
+    .card-head p { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 0; }
+    .card-body { padding: 20px 22px 23px; }
+    .dropzone {
+      min-height: 218px; border: 1.5px dashed #b9c9e8; background: #f8faff; border-radius: 15px;
+      padding: 25px 18px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; cursor: pointer; transition: .18s ease;
+    }
+    .dropzone:hover, .dropzone.dragover { background: #eef4ff; border-color: var(--primary); }
+    .upload-icon { width: 54px; height: 54px; display: grid; place-items: center; background: var(--soft-blue); border-radius: 16px; color: var(--primary); font-size: 25px; margin-bottom: 13px; }
+    .drop-title { font-size: 14px; font-weight: 750; margin-bottom: 6px; }
+    .drop-sub { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    #fileInput { display: none; }
+    .selected-file { display: none; margin-top: 13px; border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; align-items: center; gap: 10px; }
+    .file-symbol { font-size: 22px; }
+    .file-info { min-width: 0; flex: 1; }
+    .file-name { font-size: 12px; font-weight: 700; overflow-wrap: anywhere; }
+    .file-size { color: var(--muted); font-size: 11px; margin-top: 3px; }
+    .button {
+      border: 0; border-radius: 12px; padding: 13px 16px; font-size: 14px; font-weight: 750;
+      cursor: pointer; transition: .18s ease; width: 100%; margin-top: 14px;
+    }
+    .button-primary { background: var(--primary); color: white; box-shadow: 0 5px 14px rgba(53, 99, 233, .22); }
+    .button-primary:hover { background: var(--primary-dark); transform: translateY(-1px); }
+    .button:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+    .privacy-note { display: flex; gap: 8px; color: var(--muted); font-size: 11px; line-height: 1.5; margin-top: 15px; }
+    .status { display: none; margin-top: 14px; padding: 12px 13px; border-radius: 11px; font-size: 12px; line-height: 1.5; }
+    .status.info { display: block; color: #2549a3; background: #edf3ff; }
+    .status.error { display: block; color: #a12727; background: #fff0f0; }
+    .status.success { display: block; color: #126b49; background: #eaf8f1; }
+    .results-card { min-height: 365px; }
+    .empty-state { min-height: 300px; padding: 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+    .empty-art { width: 76px; height: 76px; border-radius: 24px; display: grid; place-items: center; background: #f0f4fb; color: #8292b4; font-size: 34px; margin-bottom: 18px; }
+    .empty-state h3 { margin: 0 0 8px; font-size: 16px; }
+    .empty-state p { color: var(--muted); max-width: 330px; font-size: 13px; line-height: 1.6; margin: 0; }
+    #results { display: none; padding: 21px 22px 24px; }
+    .result-title { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 17px; }
+    .result-title h3 { font-size: 16px; margin: 0 0 5px; overflow-wrap: anywhere; }
+    .result-title p { color: var(--muted); font-size: 12px; margin: 0; }
+    .pill { white-space: nowrap; background: #eaf8f1; color: var(--green); font-size: 11px; font-weight: 800; border-radius: 999px; padding: 7px 10px; }
+    
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 20px 0 28px;
+}
+
+.stat {
+  position: relative;
+  min-width: 0;
+  padding: 22px 20px;
+  overflow: hidden;
+  background: linear-gradient(145deg, #ffffff 0%, #f7f9ff 100%);
+  border: 1px solid #e4eaf5;
+  border-radius: 16px;
+  box-shadow: 0 4px 14px rgba(26, 45, 86, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 9px 22px rgba(26, 45, 86, 0.09);
+}
+
+.stat-label {
+  margin-bottom: 12px;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.stat-value {
+  color: #172b4d;
+  font-size: clamp(25px, 3vw, 34px);
+  font-weight: 750;
+  line-height: 1.2;
+  letter-spacing: -1px;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .stats {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .stat {
+    padding: 18px;
+  }
+}
+
+    .section-heading { display: flex; align-items: center; gap: 9px; margin: 22px 0 12px; font-size: 14px; font-weight: 800; }
+    .section-heading span { width: 27px; height: 27px; border-radius: 8px; display: grid; place-items: center; background: var(--soft-blue); color: var(--primary); }
+    .markdown { font-size: 13px; line-height: 1.75; color: #344054; overflow-wrap: anywhere; }
+    .markdown h1, .markdown h2, .markdown h3, .markdown h4 { color: #18243b; letter-spacing: -.3px; line-height: 1.35; }
+    .markdown h1 { font-size: 21px; margin: 20px 0 10px; }
+    .markdown h2 { font-size: 18px; margin: 20px 0 10px; }
+    .markdown h3 { font-size: 15px; margin: 19px 0 8px; }
+    .markdown p { margin: 8px 0 12px; }
+    .markdown ul, .markdown ol { padding-left: 22px; margin: 8px 0 14px; }
+    .markdown li { padding-left: 3px; margin: 4px 0; }
+    .markdown strong { color: #172033; }
+    .markdown code { background: #f0f3f8; padding: 2px 5px; border-radius: 5px; }
+    .markdown blockquote { border-left: 3px solid #b8c9ff; margin: 12px 0; padding: 5px 13px; color: #667085; }
+    .preview { border: 1px solid var(--line); background: #fafbfe; border-radius: 12px; padding: 13px; color: #667085; font-size: 12px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; }
+    .footer { color: #8993a7; font-size: 11px; text-align: center; margin-top: 27px; }
+    .spinner { display: inline-block; width: 15px; height: 15px; border: 2px solid rgba(255,255,255,.5); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -3px; margin-right: 7px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (max-width: 780px) {
+      .layout { grid-template-columns: 1fr; }
+      main { margin-top: 26px; }
+      .top-note { display: none; }
+    }
+    @media (max-width: 420px) {
+      .topbar { padding: 14px 16px; }
+      main { width: calc(100% - 22px); }
+      .card-head, .card-body, #results { padding-left: 15px; padding-right: 15px; }
+      .stats { gap: 6px; }
+      .stat { padding: 10px 8px; }
+      .stat-value { font-size: 19px; }
+    }
+.export-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin: 22px 0;
+}
+
+.button-secondary {
+  background: #e9eefb;
+  color: #244bc2;
+  border: 1px solid #d5def5;
+}
+
+.button-secondary:hover {
+  background: #dce6ff;
+}
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 12px 0 24px;
+}
+
+.chart-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #e5eaf2;
+  border-radius: 14px;
+  background: #fbfcff;
+}
+
+.chart-card h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: #172033;
+}
+
+.chart-card p {
+  margin: 0 0 12px;
+  color: #667085;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.chart-container {
+  position: relative;
+  height: 220px;
+}
+
+@media (max-width: 600px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashboard-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 5%;
+  background: #ffffff;
+  border-bottom: 1px solid #e5eaf2;
+  overflow-x: auto;
+}
+
+.nav-link {
+  display: inline-block;
+  padding: 10px 15px;
+  border-radius: 9px;
+  color: #667085;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.2s, color 0.2s;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  color: #3563e9;
+  background: #edf2ff;
+}
+
+.dashboard-nav a:focus-visible {
+  outline: 2px solid #3563e9;
+  outline-offset: 2px;
+}
+
+
+    html { scroll-behavior: smooth; }
+    #accueil, #analyser, #resultats { scroll-margin-top: 22px; }
+    .nav-link:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+    .section-heading h2 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .chart-card {
+      box-shadow: 0 4px 14px rgba(26, 45, 86, 0.035);
+      transition: border-color .2s ease, box-shadow .2s ease;
+    }
+    .chart-card:hover {
+      border-color: #cbd8f4;
+      box-shadow: 0 8px 20px rgba(26, 45, 86, 0.06);
+    }
+    .button:focus-visible {
+      outline: 3px solid rgba(53, 99, 233, .3);
+      outline-offset: 3px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+    }
+
+
+
+/* Historique des analyses */
+#historique { scroll-margin-top: 30px; }
+.history-item {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 16px; padding: 16px; margin-bottom: 12px;
+  border: 1px solid #e5e7eb; border-radius: 12px; background: #ffffff;
+}
+.history-info { min-width: 0; flex: 1; }
+.history-info h3 { margin: 0 0 8px; font-size: 15px; overflow-wrap: anywhere; }
+.history-info p { margin: 4px 0; color: #667085; font-size: 13px; }
+.history-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.history-actions button {
+  padding: 8px 12px; border: 1px solid #d0d5dd; border-radius: 8px;
+  background: #ffffff; cursor: pointer;
+}
+.history-actions .delete-history { color: #b42318; border-color: #fecdca; }
+@media (max-width: 650px) {
+  .history-item { align-items: flex-start; flex-direction: column; }
+}
+
+  </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-icon" aria-hidden="true">✦</div>
+      <div>AI Document Assistant</div>
+    </div>
+    <div class="top-note">Extraction · OCR · Analyse intelligente</div>
+  </header>
+
+  <nav class="dashboard-nav" aria-label="Navigation principale">
+    <a href="#accueil" class="nav-link active">Accueil</a>
+    <a href="#analyser" class="nav-link">Analyser un document</a>
+    <a href="#resultats" class="nav-link">Résultats</a>
+    <a href="#historique" class="nav-link">Historique</a>
+  </nav>
+
+  <main>
+<section class="hero" id="accueil">
+      <div class="eyebrow">Document intelligence</div>
+      <h1>Comprenez vos documents,<br>plus rapidement.</h1>
+      <p>Importez un PDF pour extraire son contenu, détecter les informations importantes et obtenir une synthèse structurée grâce à l’intelligence artificielle.</p>
+    </section>
+
+    <div class="layout">
+      <section class="card" id="analyser">
+        <div class="card-head">
+          <h2>Analyser un document</h2>
+          <p>Choisissez un fichier PDF pour démarrer l’analyse.</p>
+        </div>
+        <div class="card-body">
+          <label class="dropzone" id="dropzone" for="fileInput">
+            <div class="upload-icon" aria-hidden="true">↑</div>
+            <div class="drop-title">Déposez votre PDF ici</div>
+            <div class="drop-sub">ou cliquez pour choisir un fichier<br>Format PDF · 20 Mo maximum</div>
+          </label>
+          <input type="file" id="fileInput" accept=".pdf,application/pdf">
+          <div class="selected-file" id="selectedFile">
+            <div class="file-symbol" aria-hidden="true">📄</div>
+            <div class="file-info">
+              <div class="file-name" id="fileName"></div>
+              <div class="file-size" id="fileSize"></div>
+            </div>
+          </div>
+          <button class="button button-primary" id="analyzeButton" disabled>Analyser le document <span aria-hidden="true">→</span></button>
+          <div class="status" id="status" role="status" aria-live="polite"></div>
+          <div class="privacy-note"><span aria-hidden="true">🔒</span><span>Les documents sont transmis au serveur de cette application pour traitement. Évitez d’importer des informations confidentielles si vous n’êtes pas autorisé à les partager.</span></div>
+        </div>
+      </section>
+
+      <section class="card results-card">
+        <div class="card-head">
+          <h2>Résultats de l’analyse</h2>
+          <p>Les informations extraites apparaîtront ici.</p>
+        </div>
+        <div class="empty-state" id="emptyState">
+          <div class="empty-art" aria-hidden="true">▤</div>
+          <h3>Prêt à analyser votre PDF</h3>
+          <p>Importez un document et lancez l’analyse. Le résumé, les statistiques et les informations clés seront présentés dans cet espace.</p>
+        </div>
+        <div id="results">
+          <div class="result-title">
+            <div>
+              <h3 id="resultFileName">Document analysé</h3>
+              <p id="resultMethod">Analyse terminée</p>
+            </div>
+            <span class="pill">✓ Terminé</span>
+          </div>
+          <div class="stats">
+            <div class="stat"><div class="stat-label">Pages du document</div><div class="stat-value" id="pagesStat">—</div></div>
+            <div class="stat"><div class="stat-label">Caractères extraits</div><div class="stat-value" id="charactersStat">—</div></div>
+            <div class="stat"><div class="stat-label">Pages OCR</div><div class="stat-value" id="ocrStat">—</div></div>
+          </div>
+         <div class="section-heading">
+  <span aria-hidden="true">▥</span> Statistiques visuelles
+</div>
+
+<div class="charts-grid">
+  <div class="chart-card">
+    <h3>Traitement des pages</h3>
+    <p>Répartition entre extraction directe et OCR.</p>
+    <div class="chart-container">
+      <canvas id="pagesChart"></canvas>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <h3>Volume du document</h3>
+    <p>Nombre de pages et de caractères extraits, avec leurs unités.</p>
+    <div class="chart-container">
+      <canvas id="volumeChart"></canvas>
+    </div>
+  </div>
+</div>
+          <div class="section-heading"><span aria-hidden="true">✦</span> <h2 id="resultats">Analyse IA</h2></div>
+          <div class="markdown" id="analysis"></div>
+          <div class="export-buttons">
+          <button class="button button-primary" id="downloadTxt">
+          Télécharger le rapport TXT
+          </button>
+       <button class="button button-secondary" id="downloadPdf">
+         Télécharger le rapport PDF
+      </button>
+      </div>
+          <div class="section-heading"><span aria-hidden="true">≡</span> Aperçu du texte extrait</div>
+          <div class="preview" id="textPreview"></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="card" id="historique" style="margin-top: 24px;">
+      <div class="card-head">
+        <h2>Historique des analyses</h2>
+        <p>Retrouvez les documents analysés précédemment.</p>
+      </div>
+      <div class="card-body">
+        <button type="button" class="button button-primary" id="refreshHistory" style="margin-top: 0; margin-bottom: 16px;">
+          Actualiser l’historique
+        </button>
+        <div id="historyStatus" role="status" aria-live="polite" style="font-size: 13px; color: #667085; margin-bottom: 12px;">
+          Chargement de l’historique…
+        </div>
+        <div id="historyList"></div>
+      </div>
+    </section>
+    <div class="footer">AI Document Assistant · Propulsé par FastAPI, PyMuPDF, Tesseract et l’IA</div>
+  </main>
+
+  <script>
+
+    // Navigation : met en évidence le lien sélectionné.
+    document.querySelectorAll(".dashboard-nav .nav-link").forEach(link => {
+      link.addEventListener("click", () => {
+        document.querySelectorAll(".dashboard-nav .nav-link").forEach(item => {
+          item.classList.remove("active");
+        });
+        link.classList.add("active");
+      });
+    });
+
+    const fileInput = document.getElementById("fileInput");
+    const dropzone = document.getElementById("dropzone");
+    const selectedFile = document.getElementById("selectedFile");
+    const fileName = document.getElementById("fileName");
+    const fileSize = document.getElementById("fileSize");
+    const analyzeButton = document.getElementById("analyzeButton");
+    const statusBox = document.getElementById("status");
+    let selectedPdf = null;
+    let lastAnalysisData = null;
+    function formatBytes(bytes) {
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} Ko`;
+      return `${(bytes / (1024 * 1024)).toFixed(2)} Mo`;
+    }
+
+    function showStatus(message, type) {
+      statusBox.textContent = message;
+      statusBox.className = `status ${type}`;
+    }
+
+    function setFile(file) {
+      if (!file) return;
+      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      if (!isPdf) {
+        selectedPdf = null;
+        analyzeButton.disabled = true;
+        selectedFile.style.display = "none";
+        showStatus("Veuillez sélectionner un fichier au format PDF.", "error");
+        return;
+      }
+      if (file.size > 20 * 1024 * 1024) {
+        selectedPdf = null;
+        analyzeButton.disabled = true;
+        selectedFile.style.display = "none";
+        showStatus("Le fichier dépasse la limite de 20 Mo.", "error");
+        return;
+      }
+      selectedPdf = file;
+      fileName.textContent = file.name;
+      fileSize.textContent = formatBytes(file.size);
+      selectedFile.style.display = "flex";
+      analyzeButton.disabled = false;
+      statusBox.className = "status";
+      statusBox.textContent = "";
+    }
+
+    fileInput.addEventListener("change", () => setFile(fileInput.files[0]));
+    ["dragenter", "dragover"].forEach(eventName => {
+      dropzone.addEventListener(eventName, event => {
+        event.preventDefault();
+        dropzone.classList.add("dragover");
+      });
+    });
+    ["dragleave", "drop"].forEach(eventName => {
+      dropzone.addEventListener(eventName, event => {
+        event.preventDefault();
+        dropzone.classList.remove("dragover");
+      });
+    });
+    dropzone.addEventListener("drop", event => setFile(event.dataTransfer.files[0]));
+
+    analyzeButton.addEventListener("click", async () => {
+      if (!selectedPdf) return;
+      const formData = new FormData();
+      formData.append("file", selectedPdf);
+      analyzeButton.disabled = true;
+      analyzeButton.innerHTML = '<span class="spinner" aria-hidden="true"></span> Analyse en cours…';
+      showStatus("Extraction du texte et analyse IA en cours. Cela peut prendre quelques instants.", "info");
+
+      try {
+        const response = await fetch("/documents/analyze", { method: "POST", body: formData });
+        let payload;
+        try {
+          payload = await response.json();
+        } catch {
+          throw new Error("Le serveur a retourné une réponse inattendue.");
+        }
+        if (!response.ok) {
+          throw new Error(payload.detail || payload.error || `Erreur du serveur (${response.status}).`);
+        }
+
+        document.getElementById("emptyState").style.display = "none";
+        document.getElementById("results").style.display = "block";
+        document.getElementById("resultFileName").textContent = payload.filename || selectedPdf.name;
+        document.getElementById("resultMethod").textContent =
+          payload.ocr_pages > 0 ? "Texte extrait avec recours à l’OCR" : "Texte extrait directement du PDF";
+        document.getElementById("pagesStat").textContent = payload.pages ?? "—";
+        document.getElementById("charactersStat").textContent =
+          Number(payload.characters_extracted ?? 0).toLocaleString("fr-FR");
+        document.getElementById("ocrStat").textContent = payload.ocr_pages ?? 0;
+        updateCharts(payload);
+        lastAnalysisData = payload;
+        const analysisText = payload.ai_analysis || "Aucune analyse IA n’a été retournée.";
+        const analysisElement = document.getElementById("analysis");
+        if (window.marked && window.DOMPurify) {
+          analysisElement.innerHTML = DOMPurify.sanitize(marked.parse(analysisText));
+        } else {
+          analysisElement.textContent = analysisText;
+          showStatus("Analyse terminée. La mise en forme Markdown n’a pas pu être chargée ; vérifiez votre connexion Internet.", "success");
+        }
+        document.getElementById("textPreview").textContent = payload.text_preview || "Aucun aperçu disponible.";
+        if (window.marked && window.DOMPurify) {
+          showStatus("Analyse terminée avec succès.", "success");
+        }
+      } catch (error) {
+        showStatus(`Impossible d’analyser le document : ${error.message}`, "error");
+      } finally {
+        analyzeButton.disabled = !selectedPdf;
+        analyzeButton.innerHTML = 'Analyser le document <span aria-hidden="true">→</span>';
+      }
+    });
+function downloadTextFile(filename, content) {
+  const blob = new Blob(["\uFEFF" + content], {
+    type: "text/plain;charset=utf-8"
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById("downloadTxt").addEventListener("click", () => {
+  if (!lastAnalysisData) {
+    alert("Veuillez d'abord analyser un document.");
+    return;
+  }
+
+  const data = lastAnalysisData;
+  const report = [
+    "AI DOCUMENT ASSISTANT",
+    "RAPPORT D'ANALYSE",
+    "",
+    "Document : " + (data.filename || "document.pdf"),
+    "Pages : " + data.pages,
+    "Caractères extraits : " + data.characters_extracted,
+    "Pages OCR : " + data.ocr_pages,
+    "",
+    "ANALYSE IA",
+    "",
+    data.ai_analysis || "Aucune analyse disponible.",
+    "",
+    "APERÇU DU TEXTE EXTRAIT",
+    "",
+    data.text_preview || "Aucun aperçu disponible."
+  ].join("\n");
+
+  downloadTextFile("rapport-analyse.txt", report);
+});
+
+document.getElementById("downloadPdf").addEventListener("click", () => {
+  if (!lastAnalysisData) {
+    alert("Veuillez d'abord analyser un document.");
+    return;
+  }
+
+  if (!window.jspdf) {
+    alert("La bibliothèque PDF n'est pas chargée. Vérifiez votre connexion Internet.");
+    return;
+  }
+
+  const data = lastAnalysisData;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const margin = 18;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const maxWidth = pageWidth - margin * 2;
+  let y = 20;
+
+  function addParagraph(text, fontSize = 10, gap = 5) {
+    doc.setFontSize(fontSize);
+    const lines = doc.splitTextToSize(String(text || ""), maxWidth);
+
+    lines.forEach(line => {
+      if (y > pageHeight - margin) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(line, margin, y);
+      y += fontSize * 0.48;
+    });
+
+    y += gap;
+  }
+
+  doc.setFont("helvetica", "bold");
+  addParagraph("AI DOCUMENT ASSISTANT", 18, 4);
+  addParagraph("Rapport d'analyse", 14, 8);
+
+  doc.setFont("helvetica", "normal");
+  addParagraph("Document : " + (data.filename || "document.pdf"));
+  addParagraph("Pages : " + data.pages);
+  addParagraph("Caractères extraits : " + data.characters_extracted);
+  addParagraph("Pages OCR : " + data.ocr_pages, 10, 8);
+
+  doc.setFont("helvetica", "bold");
+  addParagraph("ANALYSE IA", 13, 4);
+
+  doc.setFont("helvetica", "normal");
+  addParagraph(data.ai_analysis || "Aucune analyse disponible.", 10, 8);
+
+  doc.setFont("helvetica", "bold");
+  addParagraph("APERÇU DU TEXTE EXTRAIT", 13, 4);
+
+  doc.setFont("helvetica", "normal");
+  addParagraph(data.text_preview || "Aucun aperçu disponible.", 9, 4);
+
+  doc.save("rapport-analyse.pdf");
+});
+let pagesChartInstance = null;
+let volumeChartInstance = null;
+
+function updateCharts(payload) {
+  if (!window.Chart) {
+    console.error("Chart.js n'est pas chargé.");
+    return;
+  }
+
+  const totalPages = Number(payload.pages) || 0;
+  const ocrPages = Math.min(
+    totalPages,
+    Number(payload.ocr_pages) || 0
+  );
+  const directPages = Math.max(0, totalPages - ocrPages);
+
+  // Graphique circulaire : répartition du traitement
+  const pagesCanvas = document.getElementById("pagesChart");
+
+  if (pagesChartInstance) {
+    pagesChartInstance.destroy();
+  }
+
+  pagesChartInstance = new Chart(pagesCanvas, {
+    type: "doughnut",
+    data: {
+      labels: ["Extraction directe", "Pages OCR"],
+      datasets: [{
+        data: [directPages, ocrPages],
+        backgroundColor: ["#3563e9", "#16a36a"],
+        borderWidth: 0,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: {
+            usePointStyle: true,
+            padding: 16
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return `${context.label} : ${context.raw} page(s)`;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // Graphique horizontal : pages et caractères extraits.
+  const volumeCanvas = document.getElementById("volumeChart");
+
+  if (volumeChartInstance) {
+    volumeChartInstance.destroy();
+  }
+
+  const characters = Number(payload.characters_extracted) || 0;
+
+  volumeChartInstance = new Chart(volumeCanvas, {
+    type: "bar",
+    data: {
+      labels: ["Pages", "Caractères extraits"],
+      datasets: [{
+        label: "Quantité",
+        data: [totalPages, characters],
+        backgroundColor: ["#3563e9", "#16a36a"],
+        borderRadius: 7,
+        maxBarThickness: 42
+      }]
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          beginAtZero: true,
+          ticks: {
+            callback: function(value) {
+              return Number(value).toLocaleString("fr-FR");
+            }
+          }
+        },
+        y: {
+          grid: { display: false }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const unit = context.dataIndex === 0 ? " page(s)" : " caractère(s)";
+              return " " + Number(context.raw).toLocaleString("fr-FR") + unit;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+
+    // Historique : ce code s'exécute après la création des éléments HTML.
+    const historyList = document.getElementById("historyList");
+    const historyStatus = document.getElementById("historyStatus");
+    const refreshHistoryButton = document.getElementById("refreshHistory");
+
+    function escapeHistoryHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, character => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      })[character]);
+    }
+
+    async function loadHistory() {
+      if (!historyList || !historyStatus) return;
+      historyStatus.textContent = "Chargement de l’historique…";
+      historyList.replaceChildren();
+
+      try {
+        const response = await fetch("/history?limit=100");
+        if (!response.ok) throw new Error(`Erreur HTTP ${response.status}`);
+        const payload = await response.json();
+        const items = Array.isArray(payload.items) ? payload.items : [];
+
+        if (!items.length) {
+          historyStatus.textContent = "Aucune analyse enregistrée pour le moment.";
+          return;
+        }
+
+        historyStatus.textContent = `${items.length} analyse(s) enregistrée(s).`;
+        historyList.innerHTML = items.map(item => {
+          const id = Number(item.id);
+          const filename = escapeHistoryHtml(item.filename || "Document sans nom");
+          const date = escapeHistoryHtml(item.created_at
+            ? new Date(item.created_at).toLocaleString("fr-FR") : "Date inconnue");
+          return `
+            <article class="history-item">
+              <div class="history-info">
+                <h3>${filename}</h3>
+                <p>Date : ${date}</p>
+                <p>Pages : ${Number(item.pages) || 0}
+                  · Caractères : ${(Number(item.characters_extracted) || 0).toLocaleString("fr-FR")}
+                  · Pages OCR : ${Number(item.ocr_pages) || 0}</p>
+              </div>
+              <div class="history-actions">
+                <button type="button" data-history-view="${id}">Consulter</button>
+                <button type="button" class="delete-history" data-history-delete="${id}">Supprimer</button>
+              </div>
+            </article>`;
+        }).join("");
+      } catch (error) {
+        historyStatus.textContent = "Erreur lors du chargement de l’historique. Vérifiez le serveur FastAPI.";
+        console.error("Chargement historique :", error);
+      }
+    }
+
+    async function viewHistoryItem(id) {
+      try {
+        const response = await fetch(`/history/${Number(id)}`);
+        if (!response.ok) throw new Error("Impossible de charger cette analyse.");
+        const payload = await response.json();
+
+        document.getElementById("emptyState").style.display = "none";
+        document.getElementById("results").style.display = "block";
+        document.getElementById("resultFileName").textContent = payload.filename || "Document analysé";
+        document.getElementById("resultMethod").textContent = Number(payload.ocr_pages) > 0
+          ? "Texte extrait avec recours à l’OCR" : "Texte extrait directement du PDF";
+        document.getElementById("pagesStat").textContent = payload.pages ?? "—";
+        document.getElementById("charactersStat").textContent = Number(payload.characters_extracted ?? 0).toLocaleString("fr-FR");
+        document.getElementById("ocrStat").textContent = payload.ocr_pages ?? 0;
+        if (typeof updateCharts === "function") updateCharts(payload);
+        lastAnalysisData = payload;
+
+        const analysisText = payload.ai_analysis || "Aucune analyse IA disponible.";
+        const analysisElement = document.getElementById("analysis");
+        if (window.marked && window.DOMPurify) {
+          analysisElement.innerHTML = DOMPurify.sanitize(marked.parse(analysisText));
+        } else {
+          analysisElement.textContent = analysisText;
+        }
+        document.getElementById("textPreview").textContent = payload.text_preview || "Aucun aperçu disponible.";
+        document.getElementById("resultats").scrollIntoView({ behavior: "smooth", block: "start" });
+        if (typeof showStatus === "function") showStatus("Analyse précédente chargée avec succès.", "success");
+      } catch (error) {
+        alert(error.message || "Erreur lors de la consultation.");
+        console.error(error);
+      }
+    }
+
+    async function deleteHistoryItem(id) {
+      if (!confirm("Supprimer cette analyse de l’historique ?")) return;
+      try {
+        const response = await fetch(`/history/${Number(id)}`, { method: "DELETE" });
+        if (!response.ok) throw new Error("La suppression a échoué.");
+        await loadHistory();
+        if (historyStatus) historyStatus.textContent = "Analyse supprimée.";
+      } catch (error) {
+        alert(error.message || "Erreur lors de la suppression.");
+        console.error(error);
+      }
+    }
+
+    if (historyList) {
+      historyList.addEventListener("click", event => {
+        const viewButton = event.target.closest("[data-history-view]");
+        const deleteButton = event.target.closest("[data-history-delete]");
+        if (viewButton) viewHistoryItem(viewButton.dataset.historyView);
+        else if (deleteButton) deleteHistoryItem(deleteButton.dataset.historyDelete);
+      });
+    }
+    if (refreshHistoryButton) refreshHistoryButton.addEventListener("click", loadHistory);
+    loadHistory();
+
+  </script>
+</body>
+</html>
