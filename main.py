@@ -25,7 +25,10 @@ if os.path.isfile(TESSERACT_PATH):
     pytesseract.pytesseract.tesseract_cmd = TESSERACT_PATH
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE_PATH = os.path.join(BASE_DIR, "history.db")
+DATABASE_PATH = os.getenv(
+    "DATABASE_PATH",
+    os.path.join(BASE_DIR, "history.db"),
+)
 
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 Mo
 MAX_PDF_PAGES = 100
