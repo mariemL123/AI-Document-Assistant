@@ -1,10 +1,10 @@
-﻿# Secrets
+﻿# Secrets et variables d'environnement
 .env
 .env.*
 !.env.example
 OpenIA-api-key.txt
 
-# Bases de donnees
+# Bases de données
 *.db
 *.sqlite
 *.sqlite3
@@ -16,10 +16,11 @@ __pycache__/
 .venv/
 venv/
 
-# Fichiers locaux et IDE
+# Fichiers locaux et sauvegardes
 .private-local/
+Focusboard-backup/
+index_backup.html
+
+# Configuration locale
 .vscode/
 .idea/
-
-# Sauvegardes HTML locales
-index_backup.html
