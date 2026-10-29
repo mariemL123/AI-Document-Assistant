@@ -191,3 +191,13 @@ Python · Backend Development · Artificial Intelligence · Document Processing
 ---
 
 *This project demonstrates practical applications of Python, REST API development, OCR, AI integration, Docker, and cloud deployment.*
+
+## Screenshots
+
+### Application Interface
+
+![AI Document Assistant - Application Interface](screenshots/Capture%20d%27%C3%A9cran%202026-10-29%20120116.png)
+
+### Document Analysis
+
+![AI Document Assistant - Document Analysis Results](screenshots/Capture%20d%27%C3%A9cran%202026-10-29%20120222.png)
